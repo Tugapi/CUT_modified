@@ -6,7 +6,7 @@ import random
 import util.util as util
 
 
-class Aligned_dataset(BaseDataset):
+class AlignedDataset(BaseDataset):
     """
         This dataset class can load aligned/paired datasets.
 
