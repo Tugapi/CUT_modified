@@ -18,6 +18,9 @@ def get_file_paths(folder):
 
 
 def align_images(a_file_paths, b_file_paths, target_path):
+    '''Concatenate image pairs in a_file and b_file.The results are stored in target_path.
+    The number and size of the images in a_file and b_file should be same.
+    '''
     if not os.path.exists(target_path):
         os.makedirs(target_path)
 

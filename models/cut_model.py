@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from .base_model import BaseModel
 from . import networks
-from .patchnce import PatchNCELoss
+from .patchnce import PatchNCELoss, DebiasedPatchNCELoss
 import util.util as util
 
 
@@ -28,13 +28,15 @@ class CUTModel(BaseModel):
         parser.add_argument('--nce_includes_all_negatives_from_minibatch',
                             type=util.str2bool, nargs='?', const=True, default=False,
                             help='(used for single image translation) If True, include the negatives from the other samples of the minibatch when computing the contrastive loss. Please see models/patchnce.py for more details.')
-        parser.add_argument('--netF', type=str, default='mlp_sample', choices=['sample', 'reshape', 'mlp_sample'], help='how to downsample the feature map')
+        parser.add_argument('--netF', type=str, default='mlp_sample', choices=['global_pool', 'sample', 'reshape', 'mlp_sample', 'strided_conv'], help='how to downsample the feature map')
         parser.add_argument('--netF_nc', type=int, default=256)
         parser.add_argument('--nce_T', type=float, default=0.07, help='temperature for NCE loss')
         parser.add_argument('--num_patches', type=int, default=256, help='number of patches per layer')
         parser.add_argument('--flip_equivariance',
                             type=util.str2bool, nargs='?', const=True, default=False,
                             help="Enforce flip-equivariance as additional regularization. It's used by FastCUT, but not CUT")
+        parser.add_argument('--debiased_NCEloss', type=util.str2bool, nargs='?', const=True, default=False, help='use debiased NCEloss')
+        parser.add_argument('--debiased_tau_plus', type=float, default=0.05, help='the hyperparameter used for debiased NCEloss')
 
         parser.set_defaults(pool_size=0)  # no image pooling
 
@@ -82,8 +84,12 @@ class CUTModel(BaseModel):
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionNCE = []
 
-            for nce_layer in self.nce_layers:
-                self.criterionNCE.append(PatchNCELoss(opt).to(self.device))
+            if opt.debiased_NCEloss:
+                for nce_layer in self.nce_layers:
+                    self.criterionNCE.append(DebiasedPatchNCELoss(opt).to(self.device))
+            else:
+                for nce_layer in self.nce_layers:
+                    self.criterionNCE.append(PatchNCELoss(opt).to(self.device))
 
             self.criterionIdt = torch.nn.L1Loss().to(self.device)
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, opt.beta2))
@@ -181,6 +187,7 @@ class CUTModel(BaseModel):
         else:
             self.loss_G_GAN = 0.0
 
+        # Second, calculate the NCE loss
         if self.opt.lambda_NCE > 0.0:
             self.loss_NCE = self.calculate_NCE_loss(self.real_A, self.fake_B)
         else:
