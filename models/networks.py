@@ -478,7 +478,7 @@ class ReshapeF(nn.Module):
 
     def forward(self, x):
         x = self.model(x)
-        x_reshape = x.permute(0, 2, 3, 1).flatten(0, 2)
+        x_reshape = x.permute(0, 2, 3, 1).flatten(1, 2) # (N, C, H, W) -> (N, HW, C)
         return self.l2norm(x_reshape)
 
 
