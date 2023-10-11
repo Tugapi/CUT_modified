@@ -210,8 +210,12 @@ class CUTModel(BaseModel):
             feat_q = [torch.flip(fq, [3]) for fq in feat_q]
 
         feat_k = self.netG(src, self.nce_layers, encode_only=True)
-        feat_k_pool, sample_ids = self.netF(feat_k, self.opt.num_patches, None)
-        feat_q_pool, _ = self.netF(feat_q, self.opt.num_patches, sample_ids)
+        if self.opt.netF == 'sample' or self.opt.netF == 'mlp_sample':
+            feat_k_pool, sample_ids = self.netF(feat_k, self.opt.num_patches, None)
+            feat_q_pool, _ = self.netF(feat_q, self.opt.num_patches, sample_ids)
+        else:
+            feat_k_pool = self.netF(feat_k)
+            feat_q_pool = self.netF(feat_q)
 
         total_nce_loss = 0.0
         for f_q, f_k, crit, nce_layer in zip(feat_q_pool, feat_k_pool, self.criterionNCE, self.nce_layers):
